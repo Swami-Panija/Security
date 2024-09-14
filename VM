@@ -1,0 +1,247 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const VehicleRegister = () => {
+  const [movement, setMovement] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [vehicleType, setVehicleType] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverNumber, setDriverNumber] = useState('');
+  const [visitPurpose, setVisitPurpose] = useState('');
+  const [vehicles, setVehicles] = useState([]);
+  const [currentTime] = useState(new Date());
+  const [inPosition, setInPosition] = useState({ x: 0, y: 0 });
+  const [outPosition, setOutPosition] = useState({ x: 0, y: 100 });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleMouseDown = (e, isInForm) => {
+    setIsDragging(true);
+    const startX = e.pageX - (isInForm ? inPosition.x : outPosition.x);
+    const startY = e.pageY - (isInForm ? inPosition.y : outPosition.y);
+
+    const handleMouseMove = (e) => {
+      if (isInForm) {
+        setInPosition({
+          x: e.pageX - startX,
+          y: e.pageY - startY
+        });
+      } else {
+        setOutPosition({
+          x: e.pageX - startX,
+          y: e.pageY - startY
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (movement === 'IN') {
+      const newVehicle = {
+        vehicleNumber,
+        vehicleType,
+        driverName,
+        driverNumber,
+        visitPurpose,
+        entryTime: new Date(),
+      };
+      setVehicles([...vehicles, newVehicle]);
+    } else {
+      const updatedVehicles = vehicles.map(v => 
+        v.vehicleNumber === vehicleNumber ? {...v, exitTime: new Date()} : v
+      );
+      setVehicles(updatedVehicles);
+    }
+    // Reset form
+    setVehicleNumber('');
+    setVehicleType('');
+    setDriverName('');
+    setDriverNumber('');
+    setVisitPurpose('');
+  };
+
+  const vehiclesInside = vehicles.filter(v => !v.exitTime);
+  const vehiclesNotExitedAt9PM = vehicles.filter(v => 
+    !v.exitTime && new Date(v.entryTime).getHours() < 21
+  );
+
+  const getTimeSpent = (entry, exit) => {
+    const diff = (exit || currentTime) - entry;
+    return Math.round(diff / (1000 * 60)); // minutes
+  };
+
+  const chartData = [
+    { name: 'Entered', value: vehicles.length },
+    { name: 'Exited', value: vehicles.length - vehiclesInside.length },
+  ];
+
+  return (
+    <div className="p-4">
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Vehicle Movement Register</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select onValueChange={setMovement}>
+            <SelectTrigger>
+              <SelectValue placeholder="Vehicle Movement" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="IN">IN</SelectItem>
+              <SelectItem value="OUT">OUT</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {movement === 'IN' && (
+        <Card 
+          className="mt-4 bg-sky-200 cursor-move"
+          style={{
+            position: 'absolute',
+            left: `${inPosition.x}px`,
+            top: `${inPosition.y}px`,
+            zIndex: isDragging ? 1000 : 1,
+          }}
+          onMouseDown={(e) => handleMouseDown(e, true)}
+        >
+          <CardHeader>
+            <CardTitle>IN Movement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input 
+                type="text" 
+                placeholder="Vehicle Number" 
+                value={vehicleNumber} 
+                onChange={(e) => setVehicleNumber(e.target.value)}
+              />
+              <Select onValueChange={setVehicleType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Vehicle Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CAR">CAR</SelectItem>
+                  <SelectItem value="VAN">VAN</SelectItem>
+                  <SelectItem value="GV">GV</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input 
+                type="text" 
+                placeholder="Driver Name" 
+                value={driverName} 
+                onChange={(e) => setDriverName(e.target.value)}
+              />
+              <Input 
+                type="tel" 
+                placeholder="Driver Number" 
+                value={driverNumber} 
+                onChange={(e) => setDriverNumber(e.target.value)}
+                maxLength={10}
+              />
+              <Select onValueChange={setVisitPurpose}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Visit Purpose" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cottage Guest">Cottage Guest</SelectItem>
+                  <SelectItem value="Taxi Pickup">Taxi Pickup</SelectItem>
+                  <SelectItem value="Taxi drop off">Taxi drop off</SelectItem>
+                  <SelectItem value="Courier/Delivery">Courier/Delivery</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="submit">Submit</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {movement === 'OUT' && (
+        <Card 
+          className="mt-4 bg-green-200 cursor-move"
+          style={{
+            position: 'absolute',
+            left: `${outPosition.x}px`,
+            top: `${outPosition.y}px`,
+            zIndex: isDragging ? 1000 : 1,
+          }}
+          onMouseDown={(e) => handleMouseDown(e, false)}
+        >
+          <CardHeader>
+            <CardTitle>OUT Movement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Select onValueChange={setVehicleNumber}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Vehicle Number" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vehiclesInside.map(v => (
+                    <SelectItem key={v.vehicleNumber} value={v.vehicleNumber}>
+                      {v.vehicleNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="submit">Submit</Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Manager Dashboard</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="value" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
+
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold">Vehicle Time Spent in Campus</h3>
+            <ul>
+              {vehicles.map(v => (
+                <li key={v.vehicleNumber}>
+                  {v.vehicleNumber}: {getTimeSpent(v.entryTime, v.exitTime)} minutes
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold">Vehicles Not Exited at 9 PM</h3>
+            <ul>
+              {vehiclesNotExitedAt9PM.map(v => (
+                <li key={v.vehicleNumber}>{v.vehicleNumber}</li>
+              ))}
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default VehicleRegister;
